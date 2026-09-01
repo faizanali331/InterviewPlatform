@@ -12,9 +12,9 @@ export interface LoginRequest {
   password: string;
 }
 export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
+  token: string;
   expiresIn: number;
+  role: string;
 }
 
 export async function registerUser(data: RegisterRequest) {
