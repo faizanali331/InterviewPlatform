@@ -1,5 +1,7 @@
 package com.mockinterview.auth.service;
 
+import com.mockinterview.auth.dto.LoginRequest;
+import com.mockinterview.auth.dto.LoginResponse;
 import com.mockinterview.auth.dto.RegisterRequest;
 import com.mockinterview.auth.entity.Role;
 import com.mockinterview.auth.entity.User;
@@ -17,7 +19,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-
+    private final JwtService jwtService;
     @Transactional
     public User register(RegisterRequest request) {
 
@@ -58,4 +60,27 @@ public class AuthService {
         // 5. Save user
         return userRepository.save(user);
     }
+
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request){
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(()->
+                        new IllegalArgumentException("Invalid email or password")
+                );
+
+        if(!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())){
+            throw new IllegalArgumentException("Invalid user name or password");
+        }
+        if(!"ACTIVE".equals(user.getStatus())){
+            throw  new IllegalStateException("User account is not active");
+        }
+        String token = jwtService.generateToken(user);
+
+        return LoginResponse.builder()
+                .email(user.getEmail())
+                .role(user.getRole().getName())
+                .token(token)
+                .build();
+    }
+
 }

@@ -1,5 +1,7 @@
 package com.mockinterview.auth.controller;
 
+import com.mockinterview.auth.dto.LoginRequest;
+import com.mockinterview.auth.dto.LoginResponse;
 import com.mockinterview.auth.dto.RegisterRequest;
 import com.mockinterview.auth.dto.RegisterResponse;
 import com.mockinterview.auth.entity.User;
@@ -37,6 +39,14 @@ public class AuthController {
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
+                .body(response);
+    }
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request){
+        LoginResponse response = authService.login(request);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
                 .body(response);
     }
 }
