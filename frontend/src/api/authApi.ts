@@ -7,14 +7,16 @@ export interface RegisterRequest {
   lastName?: string;
   phone?: string;
 }
+
 export interface LoginRequest {
   email: string;
   password: string;
 }
+
 export interface LoginResponse {
+  email: string;
   token: string;
-  expiresIn: number;
-  role: string;
+  role: string; // raw backend value, e.g. "ROLE_CANDIDATE"
 }
 
 export async function registerUser(data: RegisterRequest) {
@@ -24,9 +26,14 @@ export async function registerUser(data: RegisterRequest) {
   });
 }
 
-export async function loginUser(
-  data: LoginRequest
-): Promise<LoginResponse> {
+export async function registerInterviewer(data: RegisterRequest) {
+  return apiRequest("/auth/register/interviewer", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function loginUser(data: LoginRequest): Promise<LoginResponse> {
   return apiRequest("/auth/login", {
     method: "POST",
     body: JSON.stringify(data),

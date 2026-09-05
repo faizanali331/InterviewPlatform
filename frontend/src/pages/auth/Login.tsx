@@ -1,102 +1,43 @@
-// import { ArrowRight } from "lucide-react";
-// import { useNavigate } from "react-router-dom";
-
-// import Logo from "../../components/common/Logo";
-
-// import type { Role } from "../../types/auth";
-
-// type LoginProps = {
-//   setRole: (role: Role) => void;
-// };
-
-// export default function Login({ setRole }: LoginProps) {
-//   const navigate = useNavigate();
-
-//   const handleLogin = () => {
-//     setRole("candidate");
-//     navigate("/dashboard");
-//   };
-
-//   return (
-//     <div className="login">
-//       <div className="loginbox">
-//         <Logo variant="dark" />
-
-//         <h1>Welcome back</h1>
-
-//         <p>Sign in to your interview workspace.</p>
-
-//         <input placeholder="Username / email" />
-
-//         <input type="password" placeholder="Password" />
-
-//         <button className="primary full" onClick={handleLogin}>
-//           Sign in
-//           <ArrowRight size={15} />
-//         </button>
-
-//         <div className="demo">
-//           <b>Mock accounts</b>
-
-//           <span>Candidate: faizan@example.com</span>
-
-//           <span>Interviewer: interviewer@company.com</span>
-
-//           <span>Admin: admin@interviewpro.com</span>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-import { ArrowRight } from "lucide-react";
 import { useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import Logo from "../../components/common/Logo";
-import type { Role } from "../../types/auth";
 import { loginUser } from "../../api/authApi";
+import { ApiClientError } from "../../api/apiClient";
+import { mapBackendRole } from "../../types/auth";
+import { useAuth } from "../../context/AuthContext";
+import { homeRouteForRole } from "../../routes/roleHome";
 
-type LoginProps = {
-  setRole: (role: Role) => void;
-};
-
-export default function Login({ setRole }: LoginProps) {
+export default function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function handleLogin() {
-    if (!email || !password) {
-      setError("Please enter email and password.");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
+  const handleLogin = async () => {
+    setError(null);
+    setSubmitting(true);
 
     try {
-      const response = await loginUser({
-        email,
-        password,
-      });
+      const response = await loginUser({ email, password });
+      const role = mapBackendRole(response.role);
 
-      localStorage.setItem("token", response.accessToken);
-
-      const role = response.role.replace("ROLE_", "").toLowerCase() as Role;
-      setRole(role);
-
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Login failed:", error);
-      setError("Invalid email or password.");
+      login({ email: response.email, role, token: response.token });
+      navigate(homeRouteForRole(role));
+    } catch (err) {
+      if (err instanceof ApiClientError) {
+        setError(err.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="login">
@@ -104,15 +45,14 @@ export default function Login({ setRole }: LoginProps) {
         <Logo variant="dark" />
 
         <h1>Welcome back</h1>
-
         <p>Sign in to your interview workspace.</p>
 
+        {error && <div className="error">{error}</div>}
+
         <input
-          type="email"
-          placeholder="Username / email"
+          placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          disabled={loading}
         />
 
         <input
@@ -120,25 +60,25 @@ export default function Login({ setRole }: LoginProps) {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          disabled={loading}
         />
-
-        {error && <p style={{ color: "tomato", marginTop: "8px" }}>{error}</p>}
 
         <button
           className="primary full"
           onClick={handleLogin}
-          disabled={loading}
+          disabled={submitting}
         >
-          {loading ? "Signing in..." : "Sign in"}
+          {submitting ? "Signing in..." : "Sign in"}
           <ArrowRight size={15} />
         </button>
 
         <div className="demo">
-          <b>Mock accounts</b>
-          <span>Candidate: faizan@example.com</span>
-          <span>Interviewer: interviewer@company.com</span>
-          <span>Admin: admin@interviewpro.com</span>
+          <span>
+            New candidate? <a href="/register">Create an account</a>
+          </span>
+          <span>
+            Want to interview others?{" "}
+            <a href="/register/interviewer">Apply as interviewer</a>
+          </span>
         </div>
       </div>
     </div>

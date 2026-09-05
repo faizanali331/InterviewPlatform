@@ -1,24 +1,13 @@
 import type { ReactNode } from "react";
-
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
-import type { Role } from "../../types/auth";
-
-type LayoutProps = {
-  role: Role;
-  setRole: (role: Role) => void;
-  children: ReactNode;
-};
-
-export default function Layout({ role, setRole, children }: LayoutProps) {
+export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
-      <Sidebar role={role} setRole={setRole} />
-
+      <Sidebar />
       <main>
-        <Topbar role={role} />
-
+        <Topbar />
         <section>{children}</section>
       </main>
     </div>
