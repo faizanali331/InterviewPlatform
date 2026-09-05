@@ -1,9 +1,6 @@
 package com.mockinterview.auth.controller;
 
-import com.mockinterview.auth.dto.LoginRequest;
-import com.mockinterview.auth.dto.LoginResponse;
-import com.mockinterview.auth.dto.RegisterRequest;
-import com.mockinterview.auth.dto.RegisterResponse;
+import com.mockinterview.auth.dto.*;
 import com.mockinterview.auth.entity.User;
 import com.mockinterview.auth.service.AuthService;
 import jakarta.validation.Valid;
@@ -48,5 +45,24 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(response);
+    }
+    @PostMapping("/register/interviewer")
+    public ResponseEntity<RegisterResponse> registerInterviewer(
+            @Valid @RequestBody InterviewerRegisterRequest request
+    ) {
+        User user = authService.registerInterviewer(request);
+
+        RegisterResponse response = RegisterResponse.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .status(user.getStatus())
+                .emailVerified(user.isEmailVerified())
+                .role(user.getRole().getName())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
