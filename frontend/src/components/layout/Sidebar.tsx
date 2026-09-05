@@ -9,17 +9,21 @@ import {
   LogOut,
 } from "lucide-react";
 
-import { Link, useLocation } from "react-router-dom";
-
 import type { Role } from "../../types/auth";
+
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 type SidebarProps = {
   role: Role;
   setRole: (role: Role) => void;
 };
 
-export default function Sidebar({ role, setRole }: SidebarProps) {
+export default function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const role = user?.role;
 
   const candidateNav = [
     {
@@ -97,7 +101,61 @@ export default function Sidebar({ role, setRole }: SidebarProps) {
         ? interviewerNav
         : adminNav;
 
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
+    // <aside>
+    //   <div className="brand">
+    //     <b>IP</b> InterviewPro
+    //   </div>
+
+    //   <div className="switch">
+    //     <span>{role}</span>
+
+    //     <select
+    //       value={role}
+    //       onChange={(event) => setRole(event.target.value as Role)}
+    //     >
+    //       <option value="candidate">Candidate</option>
+
+    //       <option value="interviewer">Interviewer</option>
+
+    //       <option value="admin">Admin</option>
+    //     </select>
+    //   </div>
+
+    //   <nav>
+    //     {nav.map((item) => {
+    //       const Icon = item.icon;
+
+    //       return (
+    //         <Link
+    //           key={item.path}
+    //           to={item.path}
+    //           className={location.pathname === item.path ? "active" : ""}
+    //         >
+    //           <Icon size={17} />
+    //           {item.name}
+    //         </Link>
+    //       );
+    //     })}
+    //   </nav>
+
+    //   <div className="bottom">
+    //     <Link to="/settings">
+    //       <Settings size={17} />
+    //       Settings
+    //     </Link>
+
+    //     <button onClick={() => alert("Mock logout")}>
+    //       <LogOut size={17} />
+    //       Logout
+    //     </button>
+    //   </div>
+    // </aside>
     <aside>
       <div className="brand">
         <b>IP</b> InterviewPro
@@ -105,23 +163,11 @@ export default function Sidebar({ role, setRole }: SidebarProps) {
 
       <div className="switch">
         <span>{role}</span>
-
-        <select
-          value={role}
-          onChange={(event) => setRole(event.target.value as Role)}
-        >
-          <option value="candidate">Candidate</option>
-
-          <option value="interviewer">Interviewer</option>
-
-          <option value="admin">Admin</option>
-        </select>
       </div>
 
       <nav>
         {nav.map((item) => {
           const Icon = item.icon;
-
           return (
             <Link
               key={item.path}
@@ -134,14 +180,12 @@ export default function Sidebar({ role, setRole }: SidebarProps) {
           );
         })}
       </nav>
-
       <div className="bottom">
         <Link to="/settings">
           <Settings size={17} />
           Settings
         </Link>
-
-        <button onClick={() => alert("Mock logout")}>
+        <button onClick={handleLogout}>
           <LogOut size={17} />
           Logout
         </button>

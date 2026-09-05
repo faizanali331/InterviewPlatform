@@ -1,11 +1,13 @@
 import { ShieldCheck } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Header from "../../components/common/Header";
 import InterviewerCard from "../../components/interviewer/InterviewerCard";
 
 import { interviewers } from "../../data/interviewers";
+import { getCompanies, getDomains } from "../../api/catalogApi";
+import { Company, Domain } from "../../types/catalog";
 
 export default function FindInterviewer() {
   const navigate = useNavigate();
@@ -14,24 +16,26 @@ export default function FindInterviewer() {
   const [domain, setDomain] = useState("All");
   const [query, setQuery] = useState("");
 
+  const [companyOptions, setCompanyOptions] = useState<Company[]>([]);
+  const [domainOptions, setDomainOptions] = useState<Domain[]>([]);
+
+  useEffect(() => {
+    getCompanies()
+      .then(setCompanyOptions)
+      .catch(() => setCompanyOptions([]));
+    getDomains()
+      .then(setDomainOptions)
+      .catch(() => setDomainOptions([]));
+  }, []);
+
   const companies = useMemo(
-    () => [
-      "All",
-      ...Array.from(
-        new Set(interviewers.map((interviewer) => interviewer.company)),
-      ),
-    ],
-    [],
+    () => ["All", ...companyOptions.map((c) => c.name)],
+    [companyOptions],
   );
 
   const domains = useMemo(
-    () => [
-      "All",
-      ...Array.from(
-        new Set(interviewers.map((interviewer) => interviewer.domain)),
-      ),
-    ],
-    [],
+    () => ["All", ...domainOptions.map((d) => d.name)],
+    [domainOptions],
   );
 
   const filteredInterviewers = interviewers.filter((interviewer) => {

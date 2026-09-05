@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Logo from "../../components/common/Logo";
-import { registerUser } from "../../api/authApi";
+import { registerInterviewer } from "../../api/authApi";
 import { ApiClientError } from "../../api/apiClient";
 
-export default function Register() {
+export default function RegisterInterviewer() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -18,6 +18,7 @@ export default function Register() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const update =
     (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -29,8 +30,8 @@ export default function Register() {
     setSubmitting(true);
 
     try {
-      await registerUser(form);
-      navigate("/login");
+      await registerInterviewer(form);
+      setSubmitted(true);
     } catch (err) {
       if (err instanceof ApiClientError) {
         setError(err.message);
@@ -43,12 +44,34 @@ export default function Register() {
     }
   };
 
+  if (submitted) {
+    return (
+      <div className="login">
+        <div className="loginbox">
+          <Logo variant="dark" />
+          <h1>Application received</h1>
+          <p>
+            Your interviewer account is pending verification. We'll review your
+            professional details and email you once approved. You won't be able
+            to log in until then.
+          </p>
+          <button className="primary full" onClick={() => navigate("/login")}>
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="login">
       <div className="loginbox">
         <Logo variant="dark" />
-        <h1>Create your account</h1>
-        <p>Practice with verified industry professionals.</p>
+        <h1>Apply as an interviewer</h1>
+        <p>
+          Verified professionals only. Your identity stays anonymous to
+          candidates.
+        </p>
 
         {error && <div className="error">{error}</div>}
 
@@ -68,7 +91,7 @@ export default function Register() {
         />
 
         <input
-          placeholder="Email"
+          placeholder="Professional email"
           value={form.email}
           onChange={update("email")}
         />
@@ -97,12 +120,12 @@ export default function Register() {
           onClick={handleSubmit}
           disabled={submitting}
         >
-          {submitting ? "Creating account..." : "Create account"}
+          {submitting ? "Submitting..." : "Submit application"}
         </button>
 
         <div className="demo">
           <span>
-            Already have an account? <a href="/login">Sign in</a>
+            Already applied? <a href="/login">Sign in</a>
           </span>
         </div>
       </div>

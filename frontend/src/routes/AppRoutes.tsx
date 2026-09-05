@@ -1,13 +1,12 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 
 import Layout from "../components/layout/Layout";
+import ProtectedRoute from "./ProtectedRoute";
 
-// Auth
 import Login from "../pages/auth/Login";
-import Landing from "../pages/landing/Landing";
 import Register from "../pages/auth/Register";
+import RegisterInterviewer from "../pages/auth/RegisterInterviewer";
 
-// Candidate
 import CandidateDashboard from "../pages/candidate/CandidateDashboard";
 import FindInterviewer from "../pages/candidate/FindInterviewer";
 import BookInterview from "../pages/candidate/BookInterview";
@@ -16,202 +15,197 @@ import BookingSuccess from "../pages/candidate/BookingSuccess";
 import MyInterviews from "../pages/candidate/MyInterviews";
 import Feedback from "../pages/candidate/Feedback";
 
-// Interviewer
 import InterviewerDashboard from "../pages/interviewer/InterviewerDashboard";
 import Availability from "../pages/interviewer/Availability";
 import InterviewerInterviews from "../pages/interviewer/InterviewerInterviews";
 import InterviewerFeedback from "../pages/interviewer/InterviewerFeedback";
 
-// Admin
 import AdminDashboard from "../pages/admin/AdminDashboard";
 import ManageInterviewers from "../pages/admin/ManageInterviewers";
 import ManageInterviews from "../pages/admin/ManageInterviews";
 import Payments from "../pages/admin/Payments";
 
-// Interview
 import InterviewRoom from "../pages/interview/InterviewRoom";
 
-import type { Role } from "../types/auth";
+import { useAuth } from "../context/AuthContext";
+import { homeRouteForRole } from "./roleHome";
 
-type AppRoutesProps = {
-  role: Role;
-  setRole: (role: Role) => void;
-};
+export default function AppRoutes() {
+  const { user, isAuthenticated } = useAuth();
 
-export default function AppRoutes({ role, setRole }: AppRoutesProps) {
+  const rootRedirect =
+    isAuthenticated && user ? homeRouteForRole(user.role) : "/login";
+
   return (
     <Routes>
-      {/* =========================
-          AUTH
-      ========================== */}
-
-      <Route path="/login" element={<Login setRole={setRole} />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-
-      {/* =========================
-          CANDIDATE
-      ========================== */}
+      <Route path="/register/interviewer" element={<RegisterInterviewer />} />
 
       <Route
         path="/dashboard"
         element={
-          <Layout role={role} setRole={setRole}>
-            <CandidateDashboard />
-          </Layout>
+          <ProtectedRoute allowedRoles={["candidate"]}>
+            <Layout>
+              <CandidateDashboard />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/interviewers"
         element={
-          <Layout role={role} setRole={setRole}>
-            <FindInterviewer />
-          </Layout>
+          <ProtectedRoute allowedRoles={["candidate"]}>
+            <Layout>
+              <FindInterviewer />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/book/:id"
         element={
-          <Layout role={role} setRole={setRole}>
-            <BookInterview />
-          </Layout>
+          <ProtectedRoute allowedRoles={["candidate"]}>
+            <Layout>
+              <BookInterview />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/payment/:id"
         element={
-          <Layout role={role} setRole={setRole}>
-            <Payment />
-          </Layout>
+          <ProtectedRoute allowedRoles={["candidate"]}>
+            <Layout>
+              <Payment />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/success"
         element={
-          <Layout role={role} setRole={setRole}>
-            <BookingSuccess />
-          </Layout>
+          <ProtectedRoute allowedRoles={["candidate"]}>
+            <Layout>
+              <BookingSuccess />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/bookings"
         element={
-          <Layout role={role} setRole={setRole}>
-            <MyInterviews />
-          </Layout>
+          <ProtectedRoute allowedRoles={["candidate"]}>
+            <Layout>
+              <MyInterviews />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/feedback"
+        element={
+          <ProtectedRoute allowedRoles={["candidate"]}>
+            <Layout>
+              <Feedback />
+            </Layout>
+          </ProtectedRoute>
         }
       />
 
       <Route
-        path="/feedback"
+        path="/room"
         element={
-          <Layout role={role} setRole={setRole}>
-            <Feedback />
-          </Layout>
+          <ProtectedRoute allowedRoles={["candidate", "interviewer"]}>
+            <InterviewRoom />
+          </ProtectedRoute>
         }
       />
-
-      {/* =========================
-          INTERVIEW ROOM
-      ========================== */}
-
-      <Route path="/room" element={<InterviewRoom />} />
-
-      {/* =========================
-          INTERVIEWER
-      ========================== */}
 
       <Route
         path="/interviewer"
         element={
-          <Layout role={role} setRole={setRole}>
-            <InterviewerDashboard />
-          </Layout>
+          <ProtectedRoute allowedRoles={["interviewer"]}>
+            <Layout>
+              <InterviewerDashboard />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/availability"
         element={
-          <Layout role={role} setRole={setRole}>
-            <Availability />
-          </Layout>
+          <ProtectedRoute allowedRoles={["interviewer"]}>
+            <Layout>
+              <Availability />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/interviewer/interviews"
         element={
-          <Layout role={role} setRole={setRole}>
-            <InterviewerInterviews />
-          </Layout>
+          <ProtectedRoute allowedRoles={["interviewer"]}>
+            <Layout>
+              <InterviewerInterviews />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/interviewer/feedback"
         element={
-          <Layout role={role} setRole={setRole}>
-            <InterviewerFeedback />
-          </Layout>
+          <ProtectedRoute allowedRoles={["interviewer"]}>
+            <Layout>
+              <InterviewerFeedback />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
-      {/* =========================
-          ADMIN
-      ========================== */}
 
       <Route
         path="/admin"
         element={
-          <Layout role={role} setRole={setRole}>
-            <AdminDashboard />
-          </Layout>
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Layout>
+              <AdminDashboard />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/admin/interviewers"
         element={
-          <Layout role={role} setRole={setRole}>
-            <ManageInterviewers />
-          </Layout>
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Layout>
+              <ManageInterviewers />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/admin/interviews"
         element={
-          <Layout role={role} setRole={setRole}>
-            <ManageInterviews />
-          </Layout>
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Layout>
+              <ManageInterviews />
+            </Layout>
+          </ProtectedRoute>
         }
       />
-
       <Route
         path="/admin/payments"
         element={
-          <Layout role={role} setRole={setRole}>
-            <Payments />
-          </Layout>
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Layout>
+              <Payments />
+            </Layout>
+          </ProtectedRoute>
         }
       />
 
-      {/* =========================
-          ROOT
-      ========================== */}
-
-      <Route path="/" element={<Landing />} />
-
-      {/* =========================
-          FALLBACK
-      ========================== */}
-
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to={rootRedirect} replace />} />
+      <Route path="*" element={<Navigate to={rootRedirect} replace />} />
     </Routes>
   );
 }
