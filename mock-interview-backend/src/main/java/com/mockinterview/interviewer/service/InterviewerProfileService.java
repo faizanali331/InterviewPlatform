@@ -133,7 +133,7 @@ public class InterviewerProfileService {
                         "Interviewer profile not found with id: " + profileId));
     }
 
-    private InterviewerProfileResponse toResponse(InterviewerProfile profile) {
+    public InterviewerProfileResponse toResponse(InterviewerProfile profile) {
         User user = profile.getUser();
         Company company = profile.getCompany();
         Designation designation = profile.getDesignation();
