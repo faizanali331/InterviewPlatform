@@ -1,25 +1,42 @@
 import { ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
+import InterviewerProfileCard from "../../components/interviewer/InterviewerProfileCard";
 import Header from "../../components/common/Header";
 import InterviewerCard from "../../components/interviewer/InterviewerCard";
+import SetCandidateLevel from "./SetCandidateLevel";
 
-import { interviewers } from "../../data/interviewers";
 import { getCompanies, getDomains } from "../../api/catalogApi";
+import { searchInterviewers } from "../../api/interviewerApi";
+import { getMyCandidateProfile } from "../../api/candidateApi";
+import { ApiClientError } from "../../api/apiClient";
 import { Company, Domain } from "../../types/catalog";
+import { InterviewerProfile } from "../../types/interviewer";
 
 export default function FindInterviewer() {
   const navigate = useNavigate();
 
-  const [company, setCompany] = useState("All");
-  const [domain, setDomain] = useState("All");
-  const [query, setQuery] = useState("");
+  const [checkingProfile, setCheckingProfile] = useState(true);
+  const [needsProfile, setNeedsProfile] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState("");
+  const [domainId, setDomainId] = useState("");
 
   const [companyOptions, setCompanyOptions] = useState<Company[]>([]);
   const [domainOptions, setDomainOptions] = useState<Domain[]>([]);
+  const [interviewers, setInterviewers] = useState<InterviewerProfile[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    getMyCandidateProfile()
+      .then(() => setNeedsProfile(false))
+      .catch((err) => {
+        if (err instanceof ApiClientError && err.status === 404) {
+          setNeedsProfile(true);
+        }
+      })
+      .finally(() => setCheckingProfile(false));
+
     getCompanies()
       .then(setCompanyOptions)
       .catch(() => setCompanyOptions([]));
@@ -28,76 +45,70 @@ export default function FindInterviewer() {
       .catch(() => setDomainOptions([]));
   }, []);
 
-  const companies = useMemo(
-    () => ["All", ...companyOptions.map((c) => c.name)],
-    [companyOptions],
-  );
+  const runSearch = () => {
+    setLoading(true);
+    setSearchError(null);
+    searchInterviewers(
+      companyId ? Number(companyId) : undefined,
+      domainId ? Number(domainId) : undefined,
+    )
+      .then(setInterviewers)
+      .catch((err) => {
+        setInterviewers([]);
+        setSearchError(
+          err instanceof ApiClientError ? err.message : "Search failed.",
+        );
+      })
+      .finally(() => setLoading(false));
+  };
 
-  const domains = useMemo(
-    () => ["All", ...domainOptions.map((d) => d.name)],
-    [domainOptions],
-  );
+  useEffect(() => {
+    if (!needsProfile && !checkingProfile) {
+      runSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsProfile, checkingProfile, companyId, domainId]);
 
-  const filteredInterviewers = interviewers.filter((interviewer) => {
-    const matchesCompany = company === "All" || interviewer.company === company;
+  if (checkingProfile) return <p>Loading...</p>;
 
-    const matchesDomain = domain === "All" || interviewer.domain === domain;
-
-    const searchText = `
-        ${interviewer.company}
-        ${interviewer.domain}
-        ${interviewer.designation}
-        ${interviewer.skills.join(" ")}
-      `.toLowerCase();
-
-    const matchesSearch = searchText.includes(query.toLowerCase());
-
-    return matchesCompany && matchesDomain && matchesSearch;
-  });
+  if (needsProfile) {
+    return <SetCandidateLevel onSet={() => setNeedsProfile(false)} />;
+  }
 
   return (
     <>
       <Header
         title="Find your interviewer"
-        sub="Choose by company, seniority and technical domain. Interviewers are always senior to the candidate."
+        sub="Choose by company and technical domain. Interviewers are always senior to you — this is enforced automatically."
       />
 
       <div className="filters">
-        <input
-          placeholder="Search company, skill or role..."
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-
         <select
-          value={company}
-          onChange={(event) => setCompany(event.target.value)}
+          value={companyId}
+          onChange={(e) => setCompanyId(e.target.value)}
         >
-          {companies.map((item) => (
-            <option key={item} value={item}>
-              {item}
+          <option value="">All companies</option>
+          {companyOptions.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>
 
-        <select
-          value={domain}
-          onChange={(event) => setDomain(event.target.value)}
-        >
-          {domains.map((item) => (
-            <option key={item} value={item}>
-              {item}
+        <select value={domainId} onChange={(e) => setDomainId(e.target.value)}>
+          <option value="">All domains</option>
+          {domainOptions.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
             </option>
           ))}
         </select>
       </div>
-
+      {searchError && <div className="error">{searchError}</div>}
       <div className="notice">
         <ShieldCheck />
-
         <div>
           <b>Verified & confidential</b>
-
           <span>
             Interviewers are verified through company-domain email. Personal
             identity remains hidden from candidates.
@@ -105,22 +116,30 @@ export default function FindInterviewer() {
         </div>
       </div>
 
-      <div className="grid">
-        {filteredInterviewers.map((interviewer) => (
-          <InterviewerCard
-            key={interviewer.id}
-            interviewer={interviewer}
-            onBook={() => navigate(`/book/${interviewer.id}`)}
-          />
-        ))}
-      </div>
+      {loading ? (
+        <p>Loading interviewers...</p>
+      ) : (
+        <>
+          <div className="grid">
+            {interviewers.map((interviewer) => (
+              <InterviewerProfileCard
+                key={interviewer.id}
+                interviewer={interviewer}
+                onBook={() => navigate(`/book/${interviewer.id}`)}
+              />
+            ))}
+          </div>
 
-      {filteredInterviewers.length === 0 && (
-        <div className="panel center">
-          <h3>No interviewers found</h3>
-
-          <p>Try changing your search or filters.</p>
-        </div>
+          {interviewers.length === 0 && (
+            <div className="panel center">
+              <h3>No eligible interviewers found</h3>
+              <p>
+                Try different filters, or check back later as more interviewers
+                get verified.
+              </p>
+            </div>
+          )}
+        </>
       )}
     </>
   );

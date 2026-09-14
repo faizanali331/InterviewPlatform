@@ -33,10 +33,8 @@ export default function InterviewerCard({
 
       <div className="row">
         <strong>{interviewer.company}</strong>
-
         <span className="rating">
           <Star size={13} fill="currentColor" />
-
           {interviewer.rating}
         </span>
       </div>
@@ -52,7 +50,6 @@ export default function InterviewerCard({
       <div className="row">
         <div>
           <small>Interview fee</small>
-
           <b>₹{interviewer.price.toLocaleString()}</b>
         </div>
 

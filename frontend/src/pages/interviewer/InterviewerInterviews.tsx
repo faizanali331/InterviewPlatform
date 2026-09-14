@@ -1,81 +1,62 @@
-import { useNavigate } from "react-router-dom";
-
 import Header from "../../components/common/Header";
 import Badge from "../../components/common/Badge";
-
-import { interviews } from "../../data/interviews";
+import { useEffect, useState } from "react";
+import { getMyBookingsAsInterviewer } from "../../api/bookingApi";
+import { Booking } from "../../types/booking";
 
 export default function InterviewerInterviews() {
-  const navigate = useNavigate();
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getMyBookingsAsInterviewer()
+      .then(setBookings)
+      .catch(() => setBookings([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <>
       <Header
         title="My interviews"
-        sub="Manage upcoming and completed candidate interviews."
+        sub="Upcoming and past candidate interviews. Candidate identity stays confidential."
       />
 
       <div className="panel table">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Interview</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Score</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {interviews.map((interview) => (
-              <tr key={interview.id}>
-                <td>{interview.id}</td>
-
-                <td>
-                  <b>{interview.domain}</b>
-
-                  <small>{interview.role}</small>
-                </td>
-
-                <td>
-                  {interview.date}
-
-                  <small>{interview.time}</small>
-                </td>
-
-                <td>
-                  <Badge
-                    tone={interview.status === "Upcoming" ? "info" : "success"}
-                  >
-                    {interview.status}
-                  </Badge>
-                </td>
-
-                <td>{interview.score ?? "—"}</td>
-
-                <td>
-                  {interview.status === "Upcoming" ? (
-                    <button
-                      className="secondary"
-                      onClick={() => navigate("/room")}
-                    >
-                      Join
-                    </button>
-                  ) : (
-                    <button
-                      className="text"
-                      onClick={() => navigate("/interviewer/feedback")}
-                    >
-                      Feedback
-                    </button>
-                  )}
-                </td>
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Domain</th>
+                <th>Date</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {bookings.map((b) => (
+                <tr key={b.id}>
+                  <td>{b.domainName}</td>
+                  <td>
+                    {b.slotDate}
+                    <small>{b.startTime.slice(0, 5)}</small>
+                  </td>
+                  <td>
+                    <Badge tone={b.status === "CONFIRMED" ? "info" : "danger"}>
+                      {b.status}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+              {bookings.length === 0 && (
+                <tr>
+                  <td colSpan={3}>No interviews yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
     </>
   );

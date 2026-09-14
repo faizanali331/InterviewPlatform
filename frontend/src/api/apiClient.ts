@@ -52,6 +52,8 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
 
     throw new ApiClientError(message, response.status, fieldErrors);
   }
-
+  if (response.status === 204) {
+    return null;
+  }
   return response.json();
 }

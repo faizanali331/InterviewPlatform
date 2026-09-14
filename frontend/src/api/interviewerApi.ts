@@ -38,3 +38,18 @@ export async function rejectInterviewer(
     body: JSON.stringify({ reason }),
   });
 }
+export async function searchInterviewers(
+  companyId?: number,
+  domainId?: number
+): Promise<InterviewerProfile[]> {
+  const params = new URLSearchParams();
+  
+  if (companyId) params.set("companyId", String(companyId));
+  if (domainId) params.set("domainId", String(domainId));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  
+  return apiRequest(`/interviewers/search${query}`);
+}
+export async function getInterviewerById(interviewerProfileId: number): Promise<InterviewerProfile> {
+  return apiRequest(`/interviewers/${interviewerProfileId}`);
+}
