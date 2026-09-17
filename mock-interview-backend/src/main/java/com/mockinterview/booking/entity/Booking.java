@@ -48,7 +48,7 @@ public class Booking {
     private Domain domain;
 
     @Column(nullable = false, length = 20)
-    private String status = "CONFIRMED";
+    private String status = "PENDING_PAYMENT";
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
