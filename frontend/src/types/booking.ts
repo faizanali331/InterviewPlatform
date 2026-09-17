@@ -23,7 +23,7 @@ export interface Booking {
   endTime: string;
   domainId: number;
   domainName: string;
-  status: "CONFIRMED" | "CANCELLED";
+  status: "PENDING_PAYMENT" | "CONFIRMED" | "CANCELLED";
 }
 
 export interface CreateBookingRequest {

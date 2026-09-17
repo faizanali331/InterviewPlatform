@@ -1,30 +1,50 @@
 import {
   ArrowRight,
-  BarChart3,
   Building2,
   CalendarDays,
   Clock,
-  Star,
   Video,
 } from "lucide-react";
-
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import Header from "../../components/common/Header";
 import Stat from "../../components/common/Stat";
 import Badge from "../../components/common/Badge";
-import InterviewerCard from "../../components/interviewer/InterviewerCard";
+import InterviewerProfileCard from "../../components/interviewer/InterviewerProfileCard";
 
-import { interviewers } from "../../data/interviewers";
+import { getMyBookingsAsCandidate } from "../../api/bookingApi";
+import { searchInterviewers } from "../../api/interviewerApi";
+import { useAuth } from "../../context/AuthContext";
+import { Booking } from "../../types/booking";
+import { InterviewerProfile } from "../../types/interviewer";
 
 export default function CandidateDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [recommended, setRecommended] = useState<InterviewerProfile[]>([]);
+
+  useEffect(() => {
+    getMyBookingsAsCandidate()
+      .then(setBookings)
+      .catch(() => setBookings([]));
+    searchInterviewers()
+      .then((list) => setRecommended(list.slice(0, 3)))
+      .catch(() => setRecommended([]));
+  }, []);
+
+  const confirmed = bookings.filter((b) => b.status === "CONFIRMED");
+  const nextInterview = [...confirmed].sort((a, b) =>
+    a.slotDate.localeCompare(b.slotDate),
+  )[0];
 
   return (
     <>
       <Header
-        title="Good morning, Faizan 👋"
-        sub="Prepare smarter with verified senior engineers and genuine interview feedback."
+        title={`Welcome, ${user?.email ?? "Candidate"} 👋`}
+        sub="Prepare smarter with verified senior engineers."
         action={
           <button className="primary" onClick={() => navigate("/interviewers")}>
             Find an interviewer
@@ -35,26 +55,16 @@ export default function CandidateDashboard() {
 
       <div className="stats">
         <Stat
-          label="Interviews completed"
-          value="8"
-          meta="+2 this month"
+          label="Total bookings"
+          value={String(bookings.length)}
+          meta="All time"
           icon={Video}
         />
-
-        <Stat label="Average score" value="82%" meta="Top 24%" icon={Star} />
-
         <Stat
-          label="Next interview"
-          value="23 Aug"
-          meta="Amazon · 10 AM"
+          label="Upcoming (confirmed)"
+          value={String(confirmed.length)}
+          meta="Ready to attend"
           icon={CalendarDays}
-        />
-
-        <Stat
-          label="Prep streak"
-          value="18 days"
-          meta="Keep going"
-          icon={BarChart3}
         />
       </div>
 
@@ -63,89 +73,73 @@ export default function CandidateDashboard() {
           <div className="row">
             <div>
               <h2>Upcoming interview</h2>
-
-              <p>Join when the session starts.</p>
-            </div>
-
-            <Badge tone="info">Tomorrow</Badge>
-          </div>
-
-          <div className="upcoming">
-            <div className="date">
-              <b>23</b>
-              <small>AUG</small>
-            </div>
-
-            <div>
-              <h3>Java + Spring Boot — Senior</h3>
-
               <p>
-                <Building2 size={13} />
-                Amazon · SDE-3
-              </p>
-
-              <p>
-                <Clock size={13} />
-                10:00 AM · 60 minutes
+                {nextInterview
+                  ? "Join when the session starts."
+                  : "Nothing scheduled yet."}
               </p>
             </div>
-
-            <button className="secondary" onClick={() => navigate("/room")}>
-              Interview room
-            </button>
+            {nextInterview && <Badge tone="info">Confirmed</Badge>}
           </div>
+
+          {nextInterview ? (
+            <div className="upcoming">
+              <div className="date">
+                <b>{nextInterview.slotDate.slice(8, 10)}</b>
+                <small>{nextInterview.slotDate.slice(5, 7)}</small>
+              </div>
+              <div>
+                <h3>
+                  {nextInterview.domainName} —{" "}
+                  {nextInterview.interviewerDesignationTitle}
+                </h3>
+                <p>
+                  <Building2 size={13} />
+                  {nextInterview.interviewerCompanyName}
+                </p>
+                <p>
+                  <Clock size={13} />
+                  {nextInterview.startTime.slice(0, 5)}
+                </p>
+              </div>
+              <button className="secondary" disabled>
+                Interview room (not built yet)
+              </button>
+            </div>
+          ) : (
+            <p>Book your first mock interview to see it here.</p>
+          )}
         </div>
 
         <div className="panel center">
-          <h2>Latest feedback</h2>
-
-          <p>Last mock interview</p>
-
-          <div className="score">
-            78
-            <small>/100</small>
-          </div>
-
-          <div className="metrics">
-            <span>
-              Technical
-              <b>76%</b>
-            </span>
-
-            <span>
-              Communication
-              <b>82%</b>
-            </span>
-
-            <span>
-              Problem solving
-              <b>79%</b>
-            </span>
-          </div>
-
-          <Link to="/feedback">View report</Link>
+          <h2>Feedback</h2>
+          <p>
+            Feedback reports aren't available yet — this feature is still being
+            built.
+          </p>
         </div>
       </div>
 
       <div className="panel">
         <div className="row">
           <div>
-            <h2>Recommended interviewers</h2>
-
-            <p>Based on Java + Spring Boot.</p>
+            <h2>Interviewers you're eligible for</h2>
+            <p>Based on your current level.</p>
           </div>
-
           <Link to="/interviewers">Explore all</Link>
         </div>
 
         <div className="grid">
-          {interviewers.slice(0, 3).map((interviewer) => (
-            <InterviewerCard
+          {recommended.map((interviewer) => (
+            <InterviewerProfileCard
               key={interviewer.id}
               interviewer={interviewer}
               onBook={() => navigate(`/book/${interviewer.id}`)}
             />
           ))}
+          {recommended.length === 0 && (
+            <p>Set your current level to see eligible interviewers here.</p>
+          )}
         </div>
       </div>
     </>

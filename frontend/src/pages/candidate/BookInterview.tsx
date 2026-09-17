@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import Header from "../../components/common/Header";
 import Badge from "../../components/common/Badge";
+import PaymentPanel from "../../components/payment/PaymentPanel";
 
 import { getInterviewerById } from "../../api/interviewerApi";
 import { getOpenSlots } from "../../api/availabilityApi";
@@ -26,6 +27,10 @@ export default function BookInterview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Once a booking is created (PENDING_PAYMENT), we switch this page into
+  // "pay for it" mode instead of navigating away immediately.
+  const [createdBookingId, setCreatedBookingId] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -68,7 +73,7 @@ export default function BookInterview() {
         availabilitySlotId: selectedSlotId,
         domainId,
       });
-      navigate("/bookings", { state: { justBooked: booking } });
+      setCreatedBookingId(booking.id);
     } catch (err) {
       setError(
         err instanceof ApiClientError ? err.message : "Something went wrong.",
@@ -81,8 +86,12 @@ export default function BookInterview() {
   return (
     <>
       <Header
-        title="Reserve your interview"
-        sub="Select a domain and a time slot."
+        title={createdBookingId ? "One step left" : "Reserve your interview"}
+        sub={
+          createdBookingId
+            ? "Your slot is held — complete payment to confirm it."
+            : "Select a domain and a time slot."
+        }
       />
 
       {error && <div className="error">{error}</div>}
@@ -103,31 +112,35 @@ export default function BookInterview() {
             </div>
           </div>
 
-          <h3>Domain</h3>
-          <select
-            value={domainId ?? ""}
-            onChange={(e) => setDomainId(Number(e.target.value))}
-          >
-            {interviewer.domains.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-
-          <h3>Choose a time slot</h3>
-          <div className="slots">
-            {slots.map((slot) => (
-              <button
-                key={slot.id}
-                className={selectedSlotId === slot.id ? "selected" : ""}
-                onClick={() => setSelectedSlotId(slot.id)}
+          {!createdBookingId && (
+            <>
+              <h3>Domain</h3>
+              <select
+                value={domainId ?? ""}
+                onChange={(e) => setDomainId(Number(e.target.value))}
               >
-                {slot.slotDate} · {slot.startTime.slice(0, 5)}
-              </button>
-            ))}
-            {slots.length === 0 && <p>No open slots right now.</p>}
-          </div>
+                {interviewer.domains.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+
+              <h3>Choose a time slot</h3>
+              <div className="slots">
+                {slots.map((slot) => (
+                  <button
+                    key={slot.id}
+                    className={selectedSlotId === slot.id ? "selected" : ""}
+                    onClick={() => setSelectedSlotId(slot.id)}
+                  >
+                    {slot.slotDate} · {slot.startTime.slice(0, 5)}
+                  </button>
+                ))}
+                {slots.length === 0 && <p>No open slots right now.</p>}
+              </div>
+            </>
+          )}
 
           <h3>Interview format</h3>
           <div className="format">
@@ -141,29 +154,38 @@ export default function BookInterview() {
         </div>
 
         <div>
-          <div className="panel summary">
-            <h3>Interview summary</h3>
-            <div className="line">
-              <span>Company</span>
-              <b>{interviewer.companyName ?? "Independent"}</b>
-            </div>
-            <div className="line">
-              <span>Designation</span>
-              <b>{interviewer.designationTitle}</b>
-            </div>
-            <div className="line">
-              <span>Fee</span>
-              <b>Pricing coming soon</b>
-            </div>
-          </div>
+          {!createdBookingId ? (
+            <>
+              <div className="panel summary">
+                <h3>Interview summary</h3>
+                <div className="line">
+                  <span>Company</span>
+                  <b>{interviewer.companyName ?? "Independent"}</b>
+                </div>
+                <div className="line">
+                  <span>Designation</span>
+                  <b>{interviewer.designationTitle}</b>
+                </div>
+                <div className="line">
+                  <span>Fee</span>
+                  <b>Shown at payment</b>
+                </div>
+              </div>
 
-          <button
-            className="primary full"
-            onClick={handleConfirm}
-            disabled={submitting || slots.length === 0}
-          >
-            {submitting ? "Booking..." : "Confirm booking"}
-          </button>
+              <button
+                className="primary full"
+                onClick={handleConfirm}
+                disabled={submitting || slots.length === 0}
+              >
+                {submitting ? "Reserving..." : "Reserve this slot"}
+              </button>
+            </>
+          ) : (
+            <PaymentPanel
+              bookingId={createdBookingId}
+              onPaid={() => navigate("/bookings")}
+            />
+          )}
         </div>
       </div>
     </>
