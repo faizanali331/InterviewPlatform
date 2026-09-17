@@ -12,5 +12,7 @@ public interface InterviewerProfileRepository extends JpaRepository<InterviewerP
 
     boolean existsByUserId(Long userId);
 
+    long countByVerificationStatus(String verificationStatus);
+
     List<InterviewerProfile> findAllByVerificationStatusOrderByCreatedAtAsc(String verificationStatus);
 }

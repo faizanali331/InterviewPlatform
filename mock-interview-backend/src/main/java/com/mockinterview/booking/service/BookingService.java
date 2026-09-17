@@ -86,7 +86,7 @@ public class BookingService {
         booking.setInterviewerProfile(interviewerProfile);
         booking.setAvailabilitySlot(slot);
         booking.setDomain(domain);
-        booking.setStatus("CONFIRMED");
+        booking.setStatus("PENDING_PAYMENT");
 
         try {
             return toResponse(bookingRepository.save(booking));
