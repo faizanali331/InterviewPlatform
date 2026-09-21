@@ -59,7 +59,17 @@ public class PaymentService {
         payment.setStatus("PENDING");
         payment.setGatewayOrderId(gatewayOrderId);
 
-        return toResponse(paymentRepository.save(payment));
+        try {
+            return toResponse(paymentRepository.save(payment));
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // Two near-simultaneous requests both tried to create the first
+            // payment row for this booking (e.g. React StrictMode's double
+            // effect in dev, or a fast double-click). One committed first;
+            // re-fetch it and hand that back instead of crashing.
+            Payment existing = paymentRepository.findByBookingId(bookingId)
+                    .orElseThrow(() -> new IllegalStateException("Could not create or retrieve payment order"));
+            return toResponse(existing);
+        }
     }
 
     /**
