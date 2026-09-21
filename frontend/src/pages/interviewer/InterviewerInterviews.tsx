@@ -1,6 +1,7 @@
 import Header from "../../components/common/Header";
 import Badge from "../../components/common/Badge";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { getMyBookingsAsInterviewer } from "../../api/bookingApi";
 import { Booking } from "../../types/booking";
 
@@ -32,6 +33,7 @@ export default function InterviewerInterviews() {
                 <th>Domain</th>
                 <th>Date</th>
                 <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -47,11 +49,21 @@ export default function InterviewerInterviews() {
                       {b.status}
                     </Badge>
                   </td>
+                  <td>
+                    {b.status === "CONFIRMED" && (
+                      <Link
+                        className="text"
+                        to={`/interviewer/feedback/give/${b.id}`}
+                      >
+                        Give feedback
+                      </Link>
+                    )}
+                  </td>
                 </tr>
               ))}
               {bookings.length === 0 && (
                 <tr>
-                  <td colSpan={3}>No interviews yet.</td>
+                  <td colSpan={4}>No interviews yet.</td>
                 </tr>
               )}
             </tbody>

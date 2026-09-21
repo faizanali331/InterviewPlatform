@@ -4,6 +4,7 @@ import Badge from "../../components/common/Badge";
 import PaymentPanel from "../../components/payment/PaymentPanel";
 import { getMyBookingsAsCandidate, cancelBooking } from "../../api/bookingApi";
 import { Booking } from "../../types/booking";
+import { Link, useNavigate } from "react-router-dom";
 
 const STATUS_TONE: Record<Booking["status"], "warning" | "info" | "danger"> = {
   PENDING_PAYMENT: "warning",
@@ -15,6 +16,7 @@ export default function MyInterviews() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [payingId, setPayingId] = useState<number | null>(null);
+  const navigate = useNavigate();
 
   const load = () => {
     setLoading(true);
@@ -78,12 +80,25 @@ export default function MyInterviews() {
                         </button>
                       )}
                       {b.status === "CONFIRMED" && (
-                        <button
-                          className="text"
-                          onClick={() => handleCancel(b.id)}
-                        >
-                          Cancel
-                        </button>
+                        <>
+                          <button
+                            className="text"
+                            onClick={() =>
+                              navigate("/room", { state: { booking: b } })
+                            }
+                          >
+                            Join
+                          </button>
+                          <Link className="text" to={`/rate/${b.id}`}>
+                            Rate
+                          </Link>
+                          <button
+                            className="text"
+                            onClick={() => handleCancel(b.id)}
+                          >
+                            Cancel
+                          </button>
+                        </>
                       )}
                     </td>
                   </tr>
