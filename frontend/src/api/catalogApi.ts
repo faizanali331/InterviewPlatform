@@ -17,3 +17,23 @@ export async function getDesignations(companyId?: number): Promise<Designation[]
   const query = companyId ? `?companyId=${companyId}` : "";
   return apiRequest(`/catalog/designations${query}`);
 }
+export async function createCompany(name: string, emailDomain?: string) {
+  return apiRequest("/catalog/companies", {
+    method: "POST",
+    body: JSON.stringify({ name, emailDomain }),
+  });
+}
+
+export async function createDomain(name: string, category: string) {
+  return apiRequest("/catalog/domains", {
+    method: "POST",
+    body: JSON.stringify({ name, category }),
+  });
+}
+
+export async function createDesignation(title: string, levelNumber: number, companyId?: number) {
+  return apiRequest("/catalog/designations", {
+    method: "POST",
+    body: JSON.stringify({ title, levelNumber, companyId: companyId ?? null }),
+  });
+}

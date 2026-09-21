@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import { createPaymentOrder, confirmPayment } from "../../api/paymentApi";
 import { ApiClientError } from "../../api/apiClient";
 import { PaymentResponse } from "../../types/payment";
+import { useEffect, useRef, useState } from "react";
 
 type Props = {
   bookingId: number;
@@ -10,6 +10,8 @@ type Props = {
 
 export default function PaymentPanel({ bookingId, onPaid }: Props) {
   const [order, setOrder] = useState<PaymentResponse | null>(null);
+  const startedForBookingId = useRef<number | null>(null);
+
   const [status, setStatus] = useState<
     "creating" | "ready" | "confirming" | "failed"
   >("creating");
@@ -33,7 +35,12 @@ export default function PaymentPanel({ bookingId, onPaid }: Props) {
       });
   };
 
-  useEffect(startOrder, [bookingId]);
+  // useEffect(startOrder, [bookingId]);
+  useEffect(() => {
+    if (startedForBookingId.current === bookingId) return;
+    startedForBookingId.current = bookingId;
+    startOrder();
+  }, [bookingId]);
 
   const openCheckout = () => {
     if (!order) return;
