@@ -1,12 +1,28 @@
+import { useEffect, useState } from "react";
 import { ShieldCheck, Users, Video, Wallet } from "lucide-react";
 
 import Header from "../../components/common/Header";
 import Badge from "../../components/common/Badge";
 import Stat from "../../components/common/Stat";
 
-import { interviewers } from "../../data/interviewers";
+import { getAdminStats } from "../../api/adminApi";
+import { listInterviewers } from "../../api/interviewerApi";
+import { AdminStats } from "../../types/admin";
+import { InterviewerProfile } from "../../types/interviewer";
 
 export default function AdminDashboard() {
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [pending, setPending] = useState<InterviewerProfile[]>([]);
+
+  useEffect(() => {
+    getAdminStats()
+      .then(setStats)
+      .catch(() => setStats(null));
+    listInterviewers("PENDING")
+      .then(setPending)
+      .catch(() => setPending([]));
+  }, []);
+
   return (
     <>
       <Header
@@ -17,67 +33,71 @@ export default function AdminDashboard() {
       <div className="stats">
         <Stat
           label="Candidates"
-          value="12,482"
-          meta="+8.2% this month"
+          value={stats ? String(stats.totalCandidates) : "—"}
+          meta={`${stats?.totalInterviewers ?? 0} interviewers`}
           icon={Users}
         />
 
         <Stat
           label="Verified interviewers"
-          value="384"
-          meta="27 pending"
+          value={stats ? String(stats.verifiedInterviewers) : "—"}
+          meta={`${stats?.pendingInterviewers ?? 0} pending`}
           icon={ShieldCheck}
         />
 
         <Stat
-          label="Interviews"
-          value="2,841"
-          meta="91% completed"
+          label="Bookings"
+          value={stats ? String(stats.totalBookings) : "—"}
+          meta={stats ? `${stats.confirmedBookings} confirmed` : ""}
           icon={Video}
         />
 
-        <Stat label="Revenue" value="₹68.4L" meta="August 2026" icon={Wallet} />
+        <Stat
+          label="Revenue"
+          value={stats ? `₹${stats.totalRevenue.toLocaleString()}` : "—"}
+          meta="Successful payments"
+          icon={Wallet}
+        />
       </div>
 
       <div className="cols">
         <div className="panel">
           <h2>Verification queue</h2>
-
           <p>Interviewers awaiting review.</p>
 
-          {interviewers.slice(0, 4).map((interviewer) => (
+          {pending.slice(0, 4).map((interviewer) => (
             <div className="adminrow" key={interviewer.id}>
-              <div className="logo">{interviewer.company[0]}</div>
-
+              <div className="logo">{(interviewer.companyName ?? "I")[0]}</div>
               <div>
                 <b>
-                  {interviewer.company} · {interviewer.designation}
+                  {interviewer.companyName ?? "Independent"} ·{" "}
+                  {interviewer.designationTitle}
                 </b>
-
                 <small>
-                  {interviewer.domain} · {interviewer.experience} years
+                  {interviewer.domains.map((d) => d.name).join(", ")} ·{" "}
+                  {interviewer.yearsOfExperience} years
                 </small>
               </div>
-
               <Badge tone="warning">Review</Badge>
             </div>
           ))}
+
+          {pending.length === 0 && <p>No interviewers awaiting review.</p>}
         </div>
 
         <div className="panel">
           <h2>Revenue by domain</h2>
 
-          {[
-            ["Java / Spring Boot", "₹28.4L"],
-            ["Frontend", "₹14.2L"],
-            ["Blockchain", "₹11.8L"],
-            ["AI / ML", "₹9.6L"],
-          ].map(([domain, revenue]) => (
-            <div className="line" key={domain}>
-              <span>{domain}</span>
-              <b>{revenue}</b>
+          {stats?.revenueByDomain.map((d) => (
+            <div className="line" key={d.domainName}>
+              <span>{d.domainName}</span>
+              <b>₹{d.amount.toLocaleString()}</b>
             </div>
           ))}
+
+          {(!stats || stats.revenueByDomain.length === 0) && (
+            <p>No revenue yet.</p>
+          )}
         </div>
       </div>
     </>
