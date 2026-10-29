@@ -124,6 +124,7 @@ public class SecurityConfig {
                                 "/api/v1/auth/refresh"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/public/queries").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
