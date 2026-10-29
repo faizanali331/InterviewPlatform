@@ -37,8 +37,8 @@ public class Booking {
             foreignKey = @ForeignKey(name = "fk_bookings_interviewer"))
     private InterviewerProfile interviewerProfile;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "availability_slot_id", nullable = false, unique = true,
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "availability_slot_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_bookings_slot"))
     private AvailabilitySlot availabilitySlot;
 
