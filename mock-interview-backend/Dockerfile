@@ -1,11 +1,14 @@
 
+
 FROM maven:3.9.9-eclipse-temurin-21
 
 WORKDIR /app
 
+COPY settings.xml /root/.m2/settings.xml
+
 COPY . .
 
-RUN mvn clean package -DskipTests
+RUN mvn -B clean package -DskipTests
 
 EXPOSE 8080
 
