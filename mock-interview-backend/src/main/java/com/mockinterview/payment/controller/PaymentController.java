@@ -28,11 +28,9 @@ public class PaymentController {
                 .body(paymentService.createOrder(currentUser, bookingId));
     }
 
+    // Public: guests have no login. See PaymentService.confirmPayment.
     @PostMapping("/confirm")
-    @PreAuthorize("hasRole('CANDIDATE')")
-    public ResponseEntity<PaymentResponse> confirmPayment(
-            @AuthenticationPrincipal User currentUser,
-            @Valid @RequestBody ConfirmPaymentRequest request) {
-        return ResponseEntity.ok(paymentService.confirmPayment(currentUser, request));
+    public ResponseEntity<PaymentResponse> confirmPayment(@Valid @RequestBody ConfirmPaymentRequest request) {
+        return ResponseEntity.ok(paymentService.confirmPayment(request));
     }
 }

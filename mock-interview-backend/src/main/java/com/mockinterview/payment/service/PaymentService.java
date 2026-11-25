@@ -11,96 +11,93 @@ import com.mockinterview.payment.gateway.PaymentGateway;
 import com.mockinterview.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
 
-    // Section 16 (pricing by level/duration/company) doesn't exist yet -
-    // every booking costs the same flat fee until that module is built.
-    private static final BigDecimal FLAT_FEE = new BigDecimal("999.00");
-
     private final PaymentRepository paymentRepository;
     private final BookingRepository bookingRepository;
     private final PaymentGateway paymentGateway;
+
     @Value("${razorpay.key-id}")
     private String razorpayKeyId;
 
+    /** "Pay now" from My interviews: only the booking's own logged-in owner may retry. */
     @Transactional
     public PaymentResponse createOrder(User candidateUser, Long bookingId) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
 
-        if (!booking.getCandidate().getId().equals(candidateUser.getId())) {
+        if (booking.getUser() == null || !booking.getUser().getId().equals(candidateUser.getId())) {
             throw new IllegalStateException("You can only pay for your own bookings");
         }
+        return createOrderFor(booking);
+    }
+
+    /** Used by BookingService for new bookings (guests included). The amount is the booking's tier price. */
+    @Transactional
+    public PaymentResponse createOrderFor(Booking booking) {
         if (!"PENDING_PAYMENT".equals(booking.getStatus())) {
             throw new IllegalStateException("This booking is not awaiting payment. Status: " + booking.getStatus());
         }
 
-        // Reuse an existing PENDING order if the candidate re-opens the payment
-        // screen, rather than creating a second row against the same booking
-        // (the unique constraint on booking_id would reject that anyway).
-        Payment payment = paymentRepository.findByBookingId(bookingId).orElseGet(Payment::new);
+        Payment payment = paymentRepository.findByBookingId(booking.getId()).orElseGet(Payment::new);
 
         if ("SUCCESS".equals(payment.getStatus())) {
             throw new IllegalStateException("This booking has already been paid for");
         }
 
-        String gatewayOrderId = paymentGateway.createOrder(bookingId, FLAT_FEE);
+        BigDecimal amount = booking.getAmount();
+        String gatewayOrderId = paymentGateway.createOrder(booking.getId(), amount);
 
         payment.setBooking(booking);
-        payment.setAmount(FLAT_FEE);
+        payment.setAmount(amount);
         payment.setStatus("PENDING");
         payment.setGatewayOrderId(gatewayOrderId);
 
         try {
             return toResponse(paymentRepository.save(payment));
-        } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // Two near-simultaneous requests both tried to create the first
-            // payment row for this booking (e.g. React StrictMode's double
-            // effect in dev, or a fast double-click). One committed first;
-            // re-fetch it and hand that back instead of crashing.
-            Payment existing = paymentRepository.findByBookingId(bookingId)
+        } catch (DataIntegrityViolationException e) {
+            // Two near-simultaneous requests both tried to create the first payment row.
+            Payment existing = paymentRepository.findByBookingId(booking.getId())
                     .orElseThrow(() -> new IllegalStateException("Could not create or retrieve payment order"));
             return toResponse(existing);
         }
     }
 
     /**
-     * White paper section 19: this is the one place a booking is allowed to
-     * move from PENDING_PAYMENT to CONFIRMED. A real gateway integration
-     * would call this from a server-to-server webhook, not directly from the
-     * candidate's browser - see the note on MockPaymentGateway.
+     * Public, because a guest has no login. The Razorpay signature check is what proves the
+     * payment is real, so nobody can fake one from the browser.
      */
     @Transactional
-    public PaymentResponse confirmPayment(User candidateUser, ConfirmPaymentRequest request) {
+    public PaymentResponse confirmPayment(ConfirmPaymentRequest request) {
         Payment payment = paymentRepository.findByGatewayOrderId(request.getGatewayOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Payment order not found"));
 
-        Booking booking = payment.getBooking();
-        if (!booking.getCandidate().getId().equals(candidateUser.getId())) {
-            throw new IllegalStateException("You can only confirm your own payments");
-        }
-        if (!"PENDING".equals(payment.getStatus())) {
-            throw new IllegalStateException("This payment has already been processed");
+        if ("SUCCESS".equals(payment.getStatus())) {
+            return toResponse(payment); // a double submit is harmless
         }
 
-        boolean verified = paymentGateway.verifyPayment(request.getGatewayOrderId(), request.getGatewayPaymentId(), request.getGatewaySignature());
+        Booking booking = payment.getBooking();
+        boolean verified = paymentGateway.verifyPayment(
+                request.getGatewayOrderId(), request.getGatewayPaymentId(), request.getGatewaySignature());
         payment.setGatewayPaymentId(request.getGatewayPaymentId());
 
         if (verified) {
             payment.setStatus("SUCCESS");
-            booking.setStatus("CONFIRMED");
+            if ("PENDING_PAYMENT".equals(booking.getStatus())) {
+                booking.setStatus("CONFIRMED");
+                booking.setPaidAt(LocalDateTime.now());
+            }
         } else {
-            payment.setStatus("FAILED");
-            // Booking deliberately stays PENDING_PAYMENT, not CANCELLED - the
-            // slot stays reserved and the candidate can retry payment.
+            payment.setStatus("FAILED"); // the booking stays PENDING_PAYMENT, so it can be retried
         }
 
         bookingRepository.save(booking);
@@ -116,7 +113,7 @@ public class PaymentService {
                 .gatewayOrderId(payment.getGatewayOrderId())
                 .gatewayPaymentId(payment.getGatewayPaymentId())
                 .razorpayKeyId(razorpayKeyId)
-                .amountInPaise(payment.getAmount().multiply(java.math.BigDecimal.valueOf(100)).longValueExact())
+                .amountInPaise(payment.getAmount().multiply(BigDecimal.valueOf(100)).longValueExact())
                 .build();
     }
 }

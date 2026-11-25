@@ -3,19 +3,17 @@ package com.mockinterview.booking.service;
 import com.mockinterview.auth.entity.User;
 import com.mockinterview.booking.dto.BookingResponse;
 import com.mockinterview.booking.dto.CreateBookingRequest;
-import com.mockinterview.booking.entity.AvailabilitySlot;
 import com.mockinterview.booking.entity.Booking;
-import com.mockinterview.booking.repository.AvailabilitySlotRepository;
 import com.mockinterview.booking.repository.BookingRepository;
-import com.mockinterview.candidate.entity.CandidateProfile;
-import com.mockinterview.candidate.repository.CandidateProfileRepository;
-import com.mockinterview.catalog.entity.Domain;
+import com.mockinterview.catalog.entity.Company;
+import com.mockinterview.catalog.repository.CompanyRepository;
 import com.mockinterview.catalog.repository.DomainRepository;
-import com.mockinterview.catalog.service.CatalogService;
 import com.mockinterview.common.ResourceNotFoundException;
-import com.mockinterview.interviewer.entity.InterviewerProfile;
+import com.mockinterview.payment.dto.PaymentResponse;
+import com.mockinterview.payment.service.PaymentService;
+import com.mockinterview.pricing.entity.TierPrice;
+import com.mockinterview.pricing.service.PricingService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,128 +24,136 @@ import java.util.List;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
-    private final AvailabilitySlotRepository slotRepository;
-    private final CandidateProfileRepository candidateProfileRepository;
+    private final CompanyRepository companyRepository;
     private final DomainRepository domainRepository;
-    private final CatalogService catalogService;
+    private final PricingService pricingService;
+    private final PaymentService paymentService;
 
     /**
-     * White paper section 18. Note what's deliberately NOT here yet: payment.
-     * A booking is CONFIRMED the instant it's created - there is no
-     * PENDING_PAYMENT intermediate state, because nothing exists to move a
-     * booking out of it. The Payment module will insert itself before the
-     * CONFIRMED step and change that.
+     * Creates the booking and its payment order in one transaction. There is deliberately no
+     * interviewer or time-slot check: the booking is just a paid request. If the payment gateway
+     * fails, the whole thing rolls back, so no orphan booking is left behind.
+     * `currentUser` is null for guests.
      */
     @Transactional
-    public BookingResponse createBooking(User candidateUser, CreateBookingRequest request) {
-        CandidateProfile candidateProfile = candidateProfileRepository.findByUserId(candidateUser.getId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Please set your current designation before booking an interview"));
-
-        AvailabilitySlot slot = slotRepository.findById(request.getAvailabilitySlotId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Slot not found with id: " + request.getAvailabilitySlotId()));
-
-        if (slot.isBooked()) {
-            throw new IllegalStateException("This slot has already been booked");
-        }
-
-        InterviewerProfile interviewerProfile = slot.getInterviewerProfile();
-
-        if (!"APPROVED".equals(interviewerProfile.getVerificationStatus())) {
-            throw new IllegalStateException("This interviewer is not currently active");
-        }
-
-        // Section 12 - enforced here, server-side, not trusted from the frontend
-        int candidateLevel = candidateProfile.getCurrentDesignation().getNormalizedLevel().getLevelNumber();
-        int interviewerLevel = interviewerProfile.getDesignation().getNormalizedLevel().getLevelNumber();
-        if (!catalogService.isEligible(candidateLevel, interviewerLevel)) {
-            throw new IllegalStateException(
-                    "This interviewer's level is not eligible to interview you");
-        }
-
-        Domain domain = domainRepository.findById(request.getDomainId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Domain not found with id: " + request.getDomainId()));
-
-        // Section 14 - interviewer must actually cover the requested domain
-        boolean interviewerCoversDomain = interviewerProfile.getDomains().stream()
-                .anyMatch(d -> d.getId().equals(domain.getId()));
-        if (!interviewerCoversDomain) {
-            throw new IllegalStateException(
-                    "This interviewer does not cover the requested domain");
-        }
-
-        slot.setBooked(true);
-        slotRepository.save(slot);
+    public PaymentResponse create(User currentUser, CreateBookingRequest request) {
+        TierPrice tier = pricingService.requireTier(request.getTier());
 
         Booking booking = new Booking();
-        booking.setCandidate(candidateUser);
-        booking.setInterviewerProfile(interviewerProfile);
-        booking.setAvailabilitySlot(slot);
-        booking.setDomain(domain);
-        booking.setStatus("PENDING_PAYMENT");
+        booking.setUser(currentUser);
+        booking.setMobile(request.getMobile());
+        booking.setName(firstNonBlank(request.getName(), currentUser != null ? fullName(currentUser) : null));
+        booking.setEmail(firstNonBlank(request.getEmail(), currentUser != null ? currentUser.getEmail() : null));
+        booking.setTier(tier.getTier());
+        booking.setAmount(tier.getPrice()); // the price comes from the tier, never from the browser
+        booking.setDesignation(blankToNull(request.getDesignation()));
+        booking.setExperience(blankToNull(request.getExperience()));
+        booking.setAvailability(blankToNull(request.getAvailability()));
 
-        try {
-            return toResponse(bookingRepository.save(booking));
-        } catch (DataIntegrityViolationException e) {
-            // The uk_bookings_slot unique constraint caught a race: two
-            // requests both passed the isBooked() check above before either
-            // committed. This is the DB-level guarantee actually doing its job.
-            throw new IllegalStateException("This slot was just booked by someone else. Please choose another.");
+        if (request.getCompanyId() != null) {
+            Company company = companyRepository.findById(request.getCompanyId())
+                    .filter(Company::isActive)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Company not found with id: " + request.getCompanyId()));
+
+            if (!tier.getTier().equals(pricingService.tierOf(company).getTier())) {
+                throw new IllegalArgumentException("That company is not in the selected tier");
+            }
+            booking.setCompany(company);
         }
+
+        if (request.getDomainId() != null) {
+            booking.setDomain(domainRepository.findById(request.getDomainId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Domain not found with id: " + request.getDomainId())));
+        }
+
+        Booking saved = bookingRepository.save(booking);
+        return paymentService.createOrderFor(saved);
     }
 
     @Transactional(readOnly = true)
-    public List<BookingResponse> listMyBookingsAsCandidate(Long candidateUserId) {
-        return bookingRepository.findAllByCandidateIdOrderByCreatedAtDesc(candidateUserId)
-                .stream().map(this::toResponse).toList();
+    public List<BookingResponse> listMine(Long userId) {
+        return bookingRepository.findAllByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
-    @Transactional(readOnly = true)
-    public List<BookingResponse> listMyBookingsAsInterviewer(Long interviewerProfileId) {
-        return bookingRepository.findAllByInterviewerProfileIdOrderByCreatedAtDesc(interviewerProfileId)
-                .stream().map(this::toResponse).toList();
-    }
-
-    /**
-     * Cancellation refund percentages (section 30) are a Payment-module
-     * concern - this just flips status and frees the slot back up.
-     */
+    /** Cancelling does not refund money. Refunds are handled by hand in the Razorpay dashboard. */
     @Transactional
-    public BookingResponse cancelBooking(User candidateUser, Long bookingId) {
-        Booking booking = bookingRepository.findById(bookingId)
-                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + bookingId));
+    public BookingResponse cancel(User user, Long bookingId) {
+        Booking booking = find(bookingId);
 
-        if (!booking.getCandidate().getId().equals(candidateUser.getId())) {
+        if (booking.getUser() == null || !booking.getUser().getId().equals(user.getId())) {
             throw new IllegalStateException("You can only cancel your own bookings");
         }
-        if ("CANCELLED".equals(booking.getStatus())) {
-            throw new IllegalStateException("This booking is already cancelled");
+        if (!"PENDING_PAYMENT".equals(booking.getStatus()) && !"CONFIRMED".equals(booking.getStatus())) {
+            throw new IllegalStateException("This booking can't be cancelled. Status: " + booking.getStatus());
         }
 
         booking.setStatus("CANCELLED");
-        booking.getAvailabilitySlot().setBooked(false);
-
         return toResponse(bookingRepository.save(booking));
     }
 
-    private BookingResponse toResponse(Booking booking) {
-        AvailabilitySlot slot = booking.getAvailabilitySlot();
-        InterviewerProfile interviewerProfile = booking.getInterviewerProfile();
+    // ---------------- admin ----------------
 
+    @Transactional(readOnly = true)
+    public List<BookingResponse> listAll() {
+        return bookingRepository.findAllByOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public BookingResponse schedule(Long bookingId, String note) {
+        Booking booking = find(bookingId);
+
+        if (!"CONFIRMED".equals(booking.getStatus())) {
+            throw new IllegalStateException("Only paid bookings can be scheduled. Status: " + booking.getStatus());
+        }
+
+        booking.setStatus("SCHEDULED");
+        booking.setScheduleNote(note.trim());
+        return toResponse(bookingRepository.save(booking));
+    }
+
+    // ---------------- helpers ----------------
+
+    private Booking find(Long id) {
+        return bookingRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Booking not found with id: " + id));
+    }
+
+    private BookingResponse toResponse(Booking b) {
         return BookingResponse.builder()
-                .id(booking.getId())
-                .interviewerProfileId(interviewerProfile.getId())
-                .interviewerCompanyName(interviewerProfile.getCompany() != null
-                        ? interviewerProfile.getCompany().getName() : "Independent")
-                .interviewerDesignationTitle(interviewerProfile.getDesignation().getTitle())
-                .slotDate(slot.getSlotDate())
-                .startTime(slot.getStartTime())
-                .endTime(slot.getEndTime())
-                .domainId(booking.getDomain().getId())
-                .domainName(booking.getDomain().getName())
-                .status(booking.getStatus())
+                .id(b.getId())
+                .name(b.getName())
+                .mobile(b.getMobile())
+                .email(b.getEmail())
+                .tier(b.getTier())
+                .companyName(b.getCompany() != null ? b.getCompany().getName() : null)
+                .domainName(b.getDomain() != null ? b.getDomain().getName() : null)
+                .designation(b.getDesignation())
+                .experience(b.getExperience())
+                .availability(b.getAvailability())
+                .amount(b.getAmount())
+                .status(b.getStatus())
+                .scheduleNote(b.getScheduleNote())
+                .registered(b.getUser() != null)
+                .createdAt(b.getCreatedAt())
+                .paidAt(b.getPaidAt())
                 .build();
+    }
+
+    private static String fullName(User user) {
+        String last = user.getLastName() != null ? user.getLastName() : "";
+        return (user.getFirstName() + " " + last).trim();
+    }
+
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value.trim();
+    }
+
+    private static String firstNonBlank(String first, String second) {
+        String chosen = blankToNull(first);
+        return chosen != null ? chosen : blankToNull(second);
     }
 }

@@ -1,6 +1,7 @@
 package com.mockinterview.admin.service;
 
 import com.mockinterview.admin.dto.AdminPaymentResponse;
+import com.mockinterview.booking.entity.Booking;
 import com.mockinterview.payment.entity.Payment;
 import com.mockinterview.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,20 +26,17 @@ public class AdminPaymentService {
     }
 
     private AdminPaymentResponse toResponse(Payment payment) {
-        var booking = payment.getBooking();
-        var interviewerProfile = booking.getInterviewerProfile();
-        var candidate = booking.getCandidate();
+        Booking booking = payment.getBooking();
 
         return AdminPaymentResponse.builder()
                 .id(payment.getId())
                 .bookingId(booking.getId())
-                .candidateEmail(candidate.getEmail())
-                .candidateName((candidate.getFirstName() + " " +
-                        (candidate.getLastName() != null ? candidate.getLastName() : "")).trim())
-                .interviewerCompanyName(interviewerProfile.getCompany() != null
-                        ? interviewerProfile.getCompany().getName() : "Independent")
-                .interviewerDesignationTitle(interviewerProfile.getDesignation().getTitle())
-                .domainName(booking.getDomain().getName())
+                .candidateName(booking.getName())
+                .candidateEmail(booking.getEmail())
+                .mobile(booking.getMobile())
+                .tier(booking.getTier())
+                .companyName(booking.getCompany() != null ? booking.getCompany().getName() : null)
+                .domainName(booking.getDomain() != null ? booking.getDomain().getName() : null)
                 .amount(payment.getAmount())
                 .status(payment.getStatus())
                 .createdAt(payment.getCreatedAt())

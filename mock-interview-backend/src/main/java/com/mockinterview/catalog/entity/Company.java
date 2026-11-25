@@ -25,6 +25,8 @@ public class Company {
 
     @Column(nullable = false, length = 150)
     private String name;
+    @Column(length = 20)
+    private String tier; // TIER_1, TIER_2, TIER_3. Null counts as TIER_3.
 
     @Column(name = "email_domain", length = 150)
     private String emailDomain;

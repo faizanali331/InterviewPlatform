@@ -12,11 +12,12 @@ public class AdminPaymentResponse {
     private Long id;
     private Long bookingId;
 
-    private String candidateEmail;
     private String candidateName;
+    private String candidateEmail;
+    private String mobile;
 
-    private String interviewerCompanyName;
-    private String interviewerDesignationTitle;
+    private String tier;
+    private String companyName;
     private String domainName;
 
     private BigDecimal amount;

@@ -10,6 +10,8 @@ import com.mockinterview.catalog.repository.CompanyRepository;
 import com.mockinterview.catalog.repository.DesignationRepository;
 import com.mockinterview.catalog.repository.DomainRepository;
 import com.mockinterview.catalog.repository.NormalizedLevelRepository;
+import com.mockinterview.pricing.entity.TierPrice;
+import com.mockinterview.pricing.repository.TierPriceRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +41,7 @@ public class DataSeeder implements CommandLineRunner {
     private final CompanyRepository companyRepository;
     private final DesignationRepository designationRepository;
     private final DomainRepository domainRepository;
+    private final TierPriceRepository tierPriceRepository;
 
     @Override
     @Transactional
@@ -46,6 +49,8 @@ public class DataSeeder implements CommandLineRunner {
         seedRoles();
         seedLevels();
         seedCompanies();
+        seedTierPrices();
+        seedCompanyTiers();
         seedDesignations();
         seedDomains();
         log.info("Reference data check complete");
@@ -151,5 +156,34 @@ public class DataSeeder implements CommandLineRunner {
             domain.setCategory(category);
             domainRepository.save(domain);
         }));
+    }
+    private void seedTierPrices() {
+        if (tierPriceRepository.count() > 0) return;
+        saveTier("TIER_1", "Tier 1", "Top product and global tech companies", "2499.00", 1);
+        saveTier("TIER_2", "Tier 2", "Large IT services and consulting firms", "1499.00", 2);
+        saveTier("TIER_3", "Tier 3", "Other companies and startups", "999.00", 3);
+    }
+
+    private void saveTier(String code, String label, String description, String price, int order) {
+        TierPrice tier = new TierPrice();
+        tier.setTier(code);
+        tier.setLabel(label);
+        tier.setDescription(description);
+        tier.setPrice(new java.math.BigDecimal(price));
+        tier.setSortOrder(order);
+        tierPriceRepository.save(tier);
+    }
+    private void seedCompanyTiers() {
+        Map<String, String> known = Map.of(
+                "amazon", "TIER_1", "microsoft", "TIER_1", "google", "TIER_1",
+                "tcs", "TIER_2", "infosys", "TIER_2", "wipro", "TIER_2",
+                "cognizant", "TIER_2", "accenture", "TIER_2", "capgemini", "TIER_2");
+
+        for (Company company : companyRepository.findAll()) {
+            if (company.getTier() == null || company.getTier().isBlank()) {
+                company.setTier(known.getOrDefault(company.getName().toLowerCase(), "TIER_3"));
+                companyRepository.save(company);
+            }
+        }
     }
 }
