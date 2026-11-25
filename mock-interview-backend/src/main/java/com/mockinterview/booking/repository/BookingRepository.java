@@ -7,8 +7,9 @@ import java.util.List;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
-    List<Booking> findAllByCandidateIdOrderByCreatedAtDesc(Long candidateId);
+    List<Booking> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 
-    List<Booking> findAllByInterviewerProfileIdOrderByCreatedAtDesc(Long interviewerProfileId);
+    List<Booking> findAllByOrderByCreatedAtDesc();
+
     long countByStatus(String status);
 }

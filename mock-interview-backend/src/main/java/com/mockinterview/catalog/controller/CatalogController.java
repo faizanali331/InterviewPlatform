@@ -39,13 +39,12 @@ public class CatalogController {
         return ResponseEntity.ok(catalogService.getDesignations(companyId));
     }
 
-    @GetMapping("/eligibility")
-    public ResponseEntity<EligibilityResponse> checkEligibility(
-            @RequestParam Long candidateDesignationId,
-            @RequestParam Long interviewerDesignationId) {
-        return ResponseEntity.ok(
-                catalogService.checkEligibility(candidateDesignationId, interviewerDesignationId)
-        );
+    @PutMapping("/companies/{companyId}/tier")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<CompanyResponse> updateCompanyTier(
+            @PathVariable Long companyId,
+            @Valid @RequestBody UpdateCompanyTierRequest request) {
+        return ResponseEntity.ok(catalogService.updateCompanyTier(companyId, request.getTier()));
     }
 
     @PostMapping("/companies")

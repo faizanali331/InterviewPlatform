@@ -13,6 +13,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = 'SUCCESS'")
     java.math.BigDecimal sumSuccessfulAmount();
 
-    @Query("SELECT b.domain.name, COALESCE(SUM(p.amount), 0) FROM Payment p JOIN p.booking b WHERE p.status = 'SUCCESS' GROUP BY b.domain.name")
+    @Query("SELECT COALESCE(d.name, 'Not specified'), COALESCE(SUM(p.amount), 0) " +
+            "FROM Payment p JOIN p.booking b LEFT JOIN b.domain d " +
+            "WHERE p.status = 'SUCCESS' GROUP BY d.name")
     List<Object[]> sumSuccessfulAmountByDomain();
 }

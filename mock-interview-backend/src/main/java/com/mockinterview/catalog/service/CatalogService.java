@@ -10,6 +10,7 @@ import com.mockinterview.catalog.repository.DesignationRepository;
 import com.mockinterview.catalog.repository.DomainRepository;
 import com.mockinterview.catalog.repository.NormalizedLevelRepository;
 import com.mockinterview.common.ResourceNotFoundException;
+import com.mockinterview.pricing.service.PricingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class CatalogService {
     private final DesignationRepository designationRepository;
     private final DomainRepository domainRepository;
     private final NormalizedLevelRepository normalizedLevelRepository;
+    private final PricingService pricingService;
 
     @Transactional(readOnly = true)
     public List<CompanyResponse> getAllCompanies() {
@@ -65,29 +67,6 @@ public class CatalogService {
         return java.util.stream.Stream.concat(companySpecific.stream(), generic.stream())
                 .map(this::toDesignationResponse)
                 .toList();
-    }
-
-    @Transactional(readOnly = true)
-    public EligibilityResponse checkEligibility(Long candidateDesignationId, Long interviewerDesignationId) {
-        int candidateLevel = getLevelNumberForDesignation(candidateDesignationId);
-        int interviewerLevel = getLevelNumberForDesignation(interviewerDesignationId);
-
-        return EligibilityResponse.builder()
-                .candidateLevelNumber(candidateLevel)
-                .interviewerLevelNumber(interviewerLevel)
-                .eligible(isEligible(candidateLevel, interviewerLevel))
-                .build();
-    }
-
-    public boolean isEligible(int candidateLevelNumber, int interviewerLevelNumber) {
-        return interviewerLevelNumber > candidateLevelNumber;
-    }
-
-    private int getLevelNumberForDesignation(Long designationId) {
-        Designation designation = designationRepository.findById(designationId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Designation not found with id: " + designationId));
-        return designation.getNormalizedLevel().getLevelNumber();
     }
 
     @Transactional
@@ -138,6 +117,7 @@ public class CatalogService {
                 .id(company.getId())
                 .name(company.getName())
                 .emailDomain(company.getEmailDomain())
+                .tier(company.getTier() != null ? company.getTier() : PricingService.DEFAULT_TIER)
                 .build();
     }
 
@@ -168,5 +148,13 @@ public class CatalogService {
                 .levelNumber(designation.getNormalizedLevel().getLevelNumber())
                 .levelName(designation.getNormalizedLevel().getLevelName())
                 .build();
+    }
+    @Transactional
+    public CompanyResponse updateCompanyTier(Long companyId, String tier) {
+        pricingService.requireTier(tier);
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Company not found with id: " + companyId));
+        company.setTier(tier);
+        return toCompanyResponse(companyRepository.save(company));
     }
 }

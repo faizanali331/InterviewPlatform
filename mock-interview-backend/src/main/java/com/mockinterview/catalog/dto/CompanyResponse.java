@@ -9,4 +9,5 @@ public class CompanyResponse {
     private Long id;
     private String name;
     private String emailDomain;
+    private String tier;
 }
